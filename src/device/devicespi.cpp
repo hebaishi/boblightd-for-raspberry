@@ -1,20 +1,20 @@
 /*
- * boblight
- * Copyright (C) Bob  2012 
- * 
- * boblight is free software: you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * boblight is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License along
- * with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+* boblight
+* Copyright (C) Bob 2012
+*
+* boblight is free software: you can redistribute it and/or modify it
+* under the terms of the GNU General Public License as published by the
+* Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* boblight is distributed in the hope that it will be useful, but
+* WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See the GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "util/log.h"
 #include "util/misc.h"
@@ -93,13 +93,16 @@ bool CDeviceSPI::SetupDevice()
 
   if (m_type == LPD8806)
   {
-    m_buffsize = m_channels.size() + 1;
+    m_buffsize = (int)(((m_channels.size()/3)*2) + 4);
     m_buff = new uint8_t[m_buffsize];
-    memset(m_buff, 0x80, m_channels.size());
-    //the LPD8806 needs a null byte at the end to reset the internal byte counter
-    m_buff[m_buffsize - 1] = 0;
-
-    m_max = 127.0f;
+  m_buff[0]=0x00;
+	m_buff[1]=0x00;
+	m_buff[2]=0x00;
+	m_buff[3]=0x00;
+    for (int i=4 ; i < m_buffsize ; i++) {
+		if (i%2 == 0) {m_buff[i]=0x80;} else {m_buff[i]=0x00;}
+	}
+	m_max = 31.0f;
   }
   else if (m_type == WS2801)
   {
@@ -122,21 +125,24 @@ bool CDeviceSPI::WriteOutput()
   //get the channel values from the clientshandler
   int64_t now = GetTimeUs();
   m_clients.FillChannels(m_channels, now, this);
+  counter=4;
+  
+  
+  
+   for (int i = 0; i < (m_channels.size()-2); i+=3) {
+      r=(uint16_t) ((m_channels[i].GetValue(now) * m_max)+0.5);
+	  // r=Clamp(r,0,(uint16_t)(m_max));
+	  g=(uint16_t) ((m_channels[i+1].GetValue(now) * m_max)+0.5);
+	  // g=Clamp(g,0,(uint16_t)(m_max));
+	  b=(uint16_t) ((m_channels[i+2].GetValue(now) * m_max)+0.5);
+	  // b=Clamp(b,0,(uint16_t)(m_max));
+	  d = (r*1024) + (g*32) + b + 32768;
+	  m_buff[counter] =d >> 8;
+      counter++;
+      m_buff[counter] =d & 0x00FF;
+      counter++;
 
-  //put the values in the buffer, big endian
-  for (int i = 0; i < m_channels.size(); i++)
-  {
-    int output = Round32(m_channels[i].GetValue(now) * m_max);
-    m_buff[i] = Clamp(output, 0, Round32(m_max));
   }
-
-  if (m_type == LPD8806)
-  {
-    //for the LPD8806, high bit needs to be always set
-    for (int i = 0; i < m_channels.size(); i++)
-      m_buff[i] |= 0x80;
-  }
-
   if (!WriteBuffer())
     return false;
 
@@ -150,13 +156,13 @@ void CDeviceSPI::CloseDevice()
   if (m_fd != -1)
   {
     //turn off all leds
-    int value;
-    if (m_type == LPD8806)
-      value = 0x80;
-    else if (m_type == WS2801)
-      value = 0;
+    
+    m_buff[0]=0x00;
+    m_buff[1]=0x00;
+    m_buff[2]=0x00;
+    m_buff[3]=0x00;
 
-    memset(m_buff, value, m_channels.size());
+    for (int i=4 ; i < m_buffsize ; i++) {if (i%2==0) {m_buff[i]=0x80;} else {m_buff[i]=0x00;}}
     WriteBuffer();
 
     close(m_fd);
@@ -191,4 +197,3 @@ bool CDeviceSPI::WriteBuffer()
 
   return true;
 }
-
