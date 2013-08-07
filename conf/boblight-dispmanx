@@ -1,0 +1,1 @@
+boblight-dispmanx -o interpolation=0 -o speed=100 -o threshold=15 -o autospeed=0 -o saturation=1 -o value=1 -p 100 -i 0.1 -f /dev/null &
