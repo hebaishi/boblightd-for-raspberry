@@ -28,4 +28,4 @@ color blue ambilight 3
 hscan 30 35   
 vscan 90 100   
 
-## That's all folks!!
+## Important!! Make sure you choose LPD8806 as your output type in boblight.conf!!
